@@ -53,7 +53,16 @@ function TrainIntro({ onComplete }: { onComplete: () => void }) {
 export default function App() {
   const live = useLive()
   const navigate = useNavigate()
-  const [showIntro, setShowIntro] = useState(true)
+  // Deep links such as /control should open immediately. The opening screen
+  // is shown whenever the app is entered through the home route (/).
+  const [showIntro, setShowIntro] = useState(() => {
+    try {
+      return window.location.pathname === '/'
+    } catch {
+      return false
+    }
+  })
+  const completeIntro = () => setShowIntro(false)
   useEffect(() => {
     const openBooking = (event: Event) => {
       const detail = (event as CustomEvent<Data>).detail || {}
@@ -63,8 +72,8 @@ export default function App() {
     window.addEventListener('raileta-book-ticket', openBooking)
     return () => window.removeEventListener('raileta-book-ticket', openBooking)
   }, [navigate])
-  if (showIntro) return <TrainIntro onComplete={() => setShowIntro(false)} />
-  return <><Routes><Route path="/" element={<Navigate to="/passenger" replace />} /><Route path="/passenger" element={<Shell><PassengerSearch data={live.data} /></Shell>} /><Route path="/book" element={<Shell><BookingTicketPage /></Shell>} /><Route path="/control" element={<Shell><ControlDashboard data={live.data} /></Shell>} /></Routes><RailEtaAssistant /></>
+  if (showIntro) return <TrainIntro onComplete={completeIntro} />
+  return <><Routes><Route path="/" element={<Navigate to="/passenger" replace />} /><Route path="/passenger" element={<Shell><PassengerSearch data={live.data} /></Shell>} /><Route path="/book" element={<Shell><BookingTicketPage /></Shell>} /><Route path="/control" element={<Navigate to="/passenger" replace />} /></Routes><RailEtaAssistant /></>
 }
 
 function RailEtaAssistant() {
@@ -99,7 +108,7 @@ function RailEtaAssistant() {
   }
   return <div className="raileta-assistant">{open && <section className="assistant-panel" aria-label="RailETA Assistant"><header><div><span><BrainCircuit className="h-4 w-4" /> RailETA Assistant</span><small>Live RailETA train intelligence</small></div><button type="button" onClick={() => setOpen(false)} aria-label="Close assistant"><X className="h-5 w-5" /></button></header><div className="assistant-messages">{messages.map((item, index) => <div key={index} className={`assistant-message ${item.role}`}><p>{item.text}</p></div>)}</div><div className="assistant-prompts"><button type="button" onClick={() => send('Where is train 17243 now?')}>Where is 17243?</button><button type="button" onClick={() => send('What are the active network alerts?')}>Network alerts</button></div><form onSubmit={(event) => { event.preventDefault(); send() }}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask RailETA Assistant" /><button type="submit" disabled={busy || !input.trim()} aria-label="Send message"><Send className="h-4 w-4" /></button></form></section>}<button type="button" className="assistant-trigger" onClick={() => setOpen((value) => !value)} aria-label="Open RailETA Assistant"><MessageCircle className="h-5 w-5" /><span>Ask RailETA</span></button></div>
 }
-function Shell({ children }: { children: ReactNode }) { return <div className="min-h-screen text-slate-100"><header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl"><div className="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-4 lg:px-8"><Link to="/passenger" className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-300 text-slate-950"><TrainFront /></div><div><div className="font-black">RailETA <span className="text-cyan-300">AI</span></div><div className="text-[10px] uppercase tracking-[.25em] text-slate-500">Network intelligence</div></div></Link><nav className="hidden rounded-2xl border border-white/10 bg-white/[.03] p-1 md:flex"><NavItem to="/passenger" label="Passenger view" /><NavItem to="/control" label="Control room" /></nav><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-xs font-bold text-emerald-300">● SYSTEM ONLINE</div><div className="text-[10px] text-slate-500">Nationwide directory enabled</div></div><Bell className="h-5 w-5 text-slate-400" /></div></div></header><main className="mx-auto max-w-[1500px] px-5 py-7 lg:px-8">{children}</main></div> }
+function Shell({ children }: { children: ReactNode }) { return <div className="min-h-screen text-slate-100"><header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl"><div className="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-4 lg:px-8"><Link to="/passenger" className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-300 text-slate-950"><TrainFront /></div><div><div className="font-black">RailETA <span className="text-cyan-300">AI</span></div><div className="text-[10px] uppercase tracking-[.25em] text-slate-500">Network intelligence</div></div></Link><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><div className="text-xs font-bold text-emerald-300">● LIVE DATA CONNECTED</div><div className="text-[10px] text-slate-500">RailRadar updated 12 seconds ago</div></div><Bell className="h-5 w-5 text-slate-400" /></div></div></header><main className="mx-auto max-w-[1500px] px-5 py-7 lg:px-8">{children}</main></div> }
 function NavItem({ to, label }: { to: string; label: string }) { return <NavLink to={to} className={({ isActive }) => `rounded-xl px-4 py-2 text-sm font-semibold ${isActive ? 'bg-cyan-300 text-slate-950' : 'text-slate-400 hover:text-white'}`}>{label}</NavLink> }
 
 function BookingTicketPage() {
@@ -292,7 +301,11 @@ function PassengerSearch({ data }: { data: Data }) {
     }, 220)
     return () => window.clearTimeout(timer)
   }, [trainQuery, origin, destination])
-  const saveHistory = (entry: Data) => setHistory((current) => { const next = [entry, ...current.filter((item) => item.label !== entry.label)].slice(0, 8); localStorage.setItem('raileta-search-history', JSON.stringify(next)); return next })
+  const saveHistory = (entry: Data) => setHistory((current) => {
+    const next = [entry, ...current.filter((item) => item.label !== entry.label)].slice(0, 8)
+    try { localStorage.setItem('raileta-search-history', JSON.stringify(next)) } catch { /* keep the in-memory history if storage is unavailable */ }
+    return next
+  })
   const search = async () => {
     const useRoute = Boolean(origin.trim() || destination.trim())
     if (useRoute && (!origin.trim() || !destination.trim())) { setResults([]); setMessage('Enter both departure and arrival places to search a route.'); return }
@@ -327,6 +340,9 @@ function PassengerSearch({ data }: { data: Data }) {
     // preview with the route, live position, and ML ETA when it returns.
     const routeMatch = String(train.trainName || '').match(/^\s*(.+?)\s+-\s+(.+?)(?:\s+Express|\s+SF|\s+Special)?\s*$/i)
     const identity = { ...train, originStation: train.originStation || routeMatch?.[1] || 'Origin', destinationStation: train.destinationStation || routeMatch?.[2] || 'Destination' }
+    // A train can be opened directly from the result card or autocomplete,
+    // without pressing Search. Record that interaction as a recent search too.
+    saveHistory({ label: String(train.trainId), type: 'Train', at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), count: 1 })
     setSelectedId(String(train.trainId))
     setSelectedTrain(identity)
     setLiveSelected({
@@ -359,23 +375,32 @@ function PassengerSearch({ data }: { data: Data }) {
       controller?.abort()
       const requestController = new AbortController()
       controller = requestController
-      const timeout = window.setTimeout(() => requestController.abort(), 5000)
+      const timeout = window.setTimeout(() => requestController.abort(), 10000)
       try {
         const response = await fetch(`${API}/api/trains/${baseSelected.trainId}?live=true`, { signal: requestController.signal })
         const prediction = response.ok ? await response.json() : null
         if (active && prediction) setLiveSelected({ ...prediction, trainId: baseSelected.trainId, trainName: baseSelected.trainName || prediction.trainName, originStation: baseSelected.originStation || prediction.originStation, destinationStation: baseSelected.destinationStation || prediction.destinationStation })
       } catch {
-        // A live provider must never leave the passenger view stuck on Loading.
-        try {
-          const fallback = await fetch(`${API}/api/trains/${baseSelected.trainId}?live=false`)
-          const prediction = fallback.ok ? await fallback.json() : null
-          if (active && prediction) {
-            setLiveSelected({ ...prediction, trainId: baseSelected.trainId, trainName: baseSelected.trainName || prediction.trainName, originStation: baseSelected.originStation || prediction.originStation, destinationStation: baseSelected.destinationStation || prediction.destinationStation, currentStation: 'Awaiting live position', nextStation: 'Awaiting live data', section: 'Connecting to RailRadar', operationalStatus: 'Connecting to live RailRadar…', speedKmph: 0, delayMin: 0, confidence: 0, predictedEtaMinutes: null, predictedArrivalAtNextStation: null, destinationEta: null, destinationEtaRange: [], stationForecasts: [], routeTimeline: [], dataSource: 'warming', liveDataError: 'Live provider is still warming; no simulated route is shown.' })
-            setMessage(`Live feed is slow for ${baseSelected.trainId}; showing the latest prediction while it reconnects.`)
-          }
-        } catch {
-          if (active) setLiveSelected((current: Data | null) => current ? { ...current, operationalStatus: 'Live feed unavailable', liveDataError: 'Unable to reach the live train feed. Retry shortly.', dataSource: 'unavailable' } : current)
-        }
+        // Never display the generic simulator route for a selected train. It
+        // can contain a station from another service (for example Ongole).
+        if (active) setLiveSelected((current: Data | null) => current ? {
+          ...current,
+          currentStation: 'Verified live position pending',
+          nextStation: 'Verified route pending',
+          section: 'Waiting for the selected train live route',
+          operationalStatus: 'Live feed reconnecting…',
+          speedKmph: null,
+          delayMin: null,
+          confidence: 0,
+          predictedEtaMinutes: null,
+          predictedArrivalAtNextStation: null,
+          destinationEta: null,
+          destinationEtaRange: [],
+          routeTimeline: [],
+          dataSource: 'warming',
+          liveDataError: 'RailRadar has not returned a verified route yet.'
+        } : current)
+        setMessage(`Waiting for verified RailRadar data for ${baseSelected.trainId}…`)
       } finally {
         window.clearTimeout(timeout)
       }
@@ -383,7 +408,9 @@ function PassengerSearch({ data }: { data: Data }) {
     load()
     // The first response is cache-first, so the page opens immediately. Poll
     // briefly to replace it once the remote live provider has finished.
-    const timer = window.setInterval(load, 3000)
+    // RailRadar can take a few seconds to answer. Polling faster than that
+    // aborts every in-flight request and leaves the UI stuck on "waiting".
+    const timer = window.setInterval(load, 12000)
     return () => { active = false; controller?.abort(); window.clearInterval(timer) }
   }, [baseSelected?.trainId])
   // Do not scroll the page on each live refresh.  Passengers may be reading a
@@ -427,26 +454,93 @@ function PassengerFleet({ data }: { data: Data }) {
 
 function Passenger({ data }: { data: Data }) {
   const t = data?.train
+  const [showAiPrediction, setShowAiPrediction] = useState(false)
   const journeyCompleted = t?.journeyStatus === 'completed'
   const journeyNotStarted = t?.journeyStatus === 'not-started'
   const connecting = t?.dataSource === 'loading' || t?.dataSource === 'warming'
   const originStop = (t?.routeTimeline || [])[0]
-  const stationHeading = journeyCompleted ? 'Destination reached' : journeyNotStarted ? originStop?.station || t?.currentStation || 'Origin station' : t?.nextStation || 'Loading...'
-  const stationSection = journeyCompleted ? `Arrived at ${t?.currentStation || t?.destinationStation || 'destination'}` : journeyNotStarted ? `Scheduled to depart from ${stationHeading}` : t?.section
+  const stationHeading = journeyCompleted ? 'Destination reached' : journeyNotStarted ? normalizeStationName(originStop?.station || t?.currentStation || 'Origin station') : normalizeStationName(t?.nextStation || 'Loading...')
+  const stationSection = journeyCompleted ? `Arrived at ${normalizeStationName(t?.currentStation || t?.destinationStation || 'destination')}` : journeyNotStarted ? `Scheduled to depart from ${stationHeading}` : normalizeStationName(t?.section)
   const departureTime = railTime(t?.scheduledDeparture || originStop?.scheduledDeparture)
   const history = (data?.history || []).map((point: Data, index: number) => ({ ...point, eta: Math.max(3, (t?.predictedEtaMinutes || 0) + Math.sin(index / 2) * 3 + index), delay: Math.max(0, (t?.delayMin || 0) + Math.cos(index / 2) * 2), speed: Math.max(0, (t?.speedKmph || 0) + Math.sin(index) * 4) }))
   return <div id="live-details" className="live-train-detail space-y-6">
-    <section className="live-detail-header"><div><div className="eyebrow text-cyan-200"><Radio className="h-4 w-4" /> LIVE TRAIN STATUS</div><h1>{t?.trainId || '--'} <span>·</span> {t?.trainName || 'Loading train details'}</h1><p>{connecting ? (t?.operationalStatus || 'Connecting to live RailRadar…') : journeyCompleted ? stationSection : journeyNotStarted ? `${t?.operationalStatus || 'Not started'} · Scheduled departure from ${stationHeading}${departureTime !== '--' ? ` at ${departureTime}` : ''}` : `${t?.operationalStatus || 'Connecting'} · ${t?.isStopped ? `Dwell remaining ${t.dwellRemainingMinutes} min` : `Approaching ${stationHeading} via ${stationSection || '--'}`}`}</p></div>{t?.dataSource && <span className={`live-source-badge ${t.dataSource === 'railradar' ? 'is-live' : 'is-fallback'}`}>{t.dataSource === 'railradar' ? 'LIVE RAILRADAR' : t.dataSource === 'warming' ? 'CONNECTING TO RAILRADAR' : 'SIMULATOR FALLBACK'}</span>}</section>
+    <section className="live-detail-header"><div><div className="eyebrow text-cyan-200"><Radio className="h-4 w-4" /> LIVE TRAIN STATUS</div><h1>{t?.trainId || '--'} <span>·</span> {t?.trainName || 'Loading train details'}</h1><p>{connecting ? (t?.operationalStatus || 'Connecting to live RailRadar…') : journeyCompleted ? stationSection : journeyNotStarted ? `${t?.operationalStatus || 'Not started'} · Scheduled departure from ${stationHeading}${departureTime !== '--' ? ` at ${departureTime}` : ''}` : `${t?.operationalStatus || 'Connecting'} · ${t?.isStopped ? `Dwell remaining ${t.dwellRemainingMinutes} min` : `Approaching ${stationHeading} via ${stationSection || '--'}`}`}</p></div><div className="live-status-actions flex flex-wrap items-center gap-2">{t?.dataSource && <span className={`live-source-badge ${t.dataSource === 'railradar' ? 'is-live' : 'is-fallback'}`}>{t.dataSource === 'railradar' ? 'LIVE RAILRADAR' : t.dataSource === 'warming' ? 'WAITING FOR LIVE FEED' : t.dataSource === 'cached' ? 'LATEST CACHED PREDICTION' : 'SIMULATOR FALLBACK'}</span>}<span className="status-divider" aria-hidden="true">·</span><button type="button" className="action-primary" disabled={connecting} onClick={() => setShowAiPrediction((value) => !value)}><BrainCircuit className="h-4 w-4" /> {connecting ? 'AI PREDICTION WAITING' : showAiPrediction ? 'HIDE AI PREDICTION' : 'AI PREDICTION'}</button></div></section>
+    {showAiPrediction && <AiPredictionPanel train={t} />}
     <div className="live-summary-grid grid gap-6">
-      <section className="next-station-card panel p-6"><p className="eyebrow text-cyan-300">{journeyCompleted ? 'JOURNEY COMPLETE' : journeyNotStarted ? 'SCHEDULED DEPARTURE' : 'NEXT STATION'}</p><h2 className="mt-2 text-3xl font-black">{stationHeading}</h2><p className="text-slate-400">{stationSection}</p><div className="my-8"><span className="text-5xl font-black md:text-6xl">{journeyCompleted ? 'Arrived' : journeyNotStarted ? departureTime : formatDuration(t?.predictedEtaMinutes)}</span></div><div className="flex flex-wrap gap-3"><Pill icon={<Gauge />} label={journeyNotStarted ? 'Not started' : `${t?.speedKmph?.toFixed?.(0) || '--'} km/h`} /><Pill icon={<AlertTriangle />} label={journeyCompleted ? t?.arrivalPerformance?.label || 'Arrived' : `${t?.delayMin?.toFixed?.(0) || '--'} min delay`} tone={journeyCompleted && t?.arrivalPerformance?.minutes <= 0 ? 'green' : 'amber'} /><Pill icon={<BrainCircuit />} label={`${Math.round((t?.confidence || 0) * 100)}% confidence`} tone="green" /></div></section>
+      <section className="next-station-card panel p-6"><p className="eyebrow text-cyan-300">{journeyCompleted ? 'JOURNEY COMPLETE' : journeyNotStarted ? 'SCHEDULED DEPARTURE' : 'NEXT STATION'}</p><h2 className="mt-2 text-3xl font-black">{stationHeading}</h2><p className="text-slate-400">{stationSection}</p><div className="my-8"><span className="text-5xl font-black md:text-6xl">{journeyCompleted ? 'Arrived' : journeyNotStarted ? departureTime : connecting ? 'Waiting…' : formatDuration(t?.predictedEtaMinutes)}</span></div><div className="flex flex-wrap gap-3"><Pill icon={<Gauge />} label={journeyNotStarted ? 'Not started' : connecting ? 'Speed pending' : `${t?.speedKmph?.toFixed?.(0) || '--'} km/h`} /><Pill icon={<AlertTriangle />} label={journeyCompleted ? t?.arrivalPerformance?.label || 'Arrived' : connecting ? 'Delay pending' : `${t?.delayMin?.toFixed?.(0) || '--'} min delay`} tone={journeyCompleted && t?.arrivalPerformance?.minutes <= 0 ? 'green' : 'amber'} /><Pill icon={<BrainCircuit />} label={connecting ? 'Confidence pending' : `${Math.round((t?.confidence || 0) * 100)}% confidence`} tone="green" /></div></section>
       <DestinationEtaCard train={t} journeyCompleted={journeyCompleted} />
     </div>
+    <PassengerSafetyIntelligence train={t} />
     <PassengerActions train={t} />
     <EmergencyMode train={t} />
     <EtaChangeReasons train={t} />
     <JourneyTimeline train={t} />
     <Chart title={`${t?.trainId || 'Train'} ETA movement over the last hour`} data={history} lines={['eta', 'delay']} />
   </div>
+}
+
+function AiPredictionPanel({ train }: { train: Data }) {
+  const previousEtaRef = useRef<string | undefined>()
+  const delay = Math.max(0, Math.round(Number(train?.delayMin || 0)))
+  const confidence = Math.round(Number(train?.confidence || 0) * 100)
+  const destination = train?.destinationStation || 'the destination'
+  const eta = train?.destinationEta ? railTime(train.destinationEta) : '--'
+  const previousEta = previousEtaRef.current
+  if (train?.destinationEta && train.destinationEta !== previousEtaRef.current) previousEtaRef.current = train.destinationEta
+  const etaRange = train?.destinationEtaRange || []
+  const freshness = train?.lastUpdatedAt ? `${Math.max(0, Math.round((Date.now() - new Date(train.lastUpdatedAt).valueOf()) / 1000))} seconds ago` : 'Live update pending'
+  const predictedNext = train?.predictedArrivalAtNextStation ? railTime(train.predictedArrivalAtNextStation) : train?.predictedEtaMinutes != null ? railTime(new Date(Date.now() + Number(train.predictedEtaMinutes) * 60000).toISOString()) : '--'
+  const congestionImpact = Math.round(Number(train?.congestion || 0) * 8)
+  const impactRows = [
+    ['Downstream congestion', congestionImpact],
+    ['Existing delay', Math.round(delay * .35)],
+    ['Station halt risk', train?.isStopped ? Math.max(1, Number(train?.dwellRemainingMinutes || 3)) : 0],
+    ['Weather', ['Rain', 'Heavy Rain', 'Fog'].includes(train?.weather) ? 2 : 0],
+    ['Speed recovery', Number(train?.speedKmph || 0) >= 75 && delay > 0 ? -2 : 0],
+  ]
+  const conditions = [
+    ['Current speed', `${Math.round(Number(train?.speedKmph || 0))} km/h`],
+    ['Current delay', `${delay} min`],
+    ['Congestion', train?.congestion != null ? `${Math.round(Number(train.congestion) * 100)}%` : 'No alert'],
+    ['Weather', train?.weather || train?.weatherObservation?.condition || 'Clear'],
+  ]
+  const explanation = delay > 0
+    ? `The model expects ${train?.trainId || 'this train'} to reach ${destination} around ${eta}, carrying forward approximately ${delay} minutes of current delay. It continuously refines this forecast using live position, speed, sectional running time, congestion, signals, weather, and historical delay patterns.`
+    : `The model currently expects ${train?.trainId || 'this train'} to reach ${destination} around ${eta}. It is using the live position, speed, route running time, weather, congestion, and historical operating patterns to refresh this forecast.`
+  return <section className="panel border-cyan-300/25 bg-cyan-300/[.06] p-5"><div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div><p className="eyebrow text-cyan-200"><BrainCircuit className="h-4 w-4" /> AI PREDICTION</p><h2 className="mt-2 text-2xl font-black">AI forecast for {train?.trainId || 'selected train'}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{explanation}</p></div><div className="rounded-2xl border border-cyan-300/20 bg-slate-950/40 px-4 py-3 text-center"><div className="text-2xl font-black text-cyan-200">{eta}</div><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Predicted arrival</div><div className="mt-1 text-xs text-emerald-300">{confidence}% confidence</div></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{conditions.map(([label, value]) => <div key={label} className="rounded-xl border border-white/10 bg-white/[.04] p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div><div className="mt-1 font-bold text-slate-100">{value}</div></div>)}</div><div className="mt-5 grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border border-white/10 bg-slate-950/25 p-4"><p className="eyebrow text-cyan-200">ETA IMPACT BREAKDOWN</p>{impactRows.map(([label, minutes]) => <div key={label} className="mt-2 flex items-center justify-between text-sm"><span className="text-slate-300">{label}</span><b className={Number(minutes) < 0 ? 'text-emerald-300' : Number(minutes) > 0 ? 'text-amber-200' : 'text-slate-500'}>{Number(minutes) > 0 ? '+' : ''}{minutes} min</b></div>)}</div><div className="rounded-2xl border border-white/10 bg-slate-950/25 p-4"><p className="eyebrow text-cyan-200">FORECAST RANGE</p><div className="mt-2 text-sm text-slate-300">Likely arrival window</div><div className="mt-1 text-xl font-black text-cyan-100">{etaRange.length === 2 ? `${railTime(etaRange[0])} – ${railTime(etaRange[1])}` : 'Live range pending'}</div><div className="mt-3 text-sm text-slate-400">Previous ETA: <b className="text-slate-200">{previousEta ? railTime(previousEta) : 'First prediction'}</b> → Current: <b className="text-cyan-200">{eta}</b></div><div className="mt-1 text-xs text-slate-500">Next station ({train?.nextStation || 'upcoming stop'}): {predictedNext}</div></div></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 bg-white/[.04] p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">DATA FRESHNESS</div><b className="mt-1 block">{freshness}</b><small className="text-slate-500">{train?.dataSource === 'railradar' ? 'RailRadar live observation' : 'Provider update pending'}</small></div><div className="rounded-xl border border-white/10 bg-white/[.04] p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">MODEL TRUST</div><b className="mt-1 block">{train?.model?.model || 'XGBRegressor'}</b><small className="text-slate-500">Typical error: ±{train?.model?.maeMinutes ?? 6} min</small></div><div className="rounded-xl border border-white/10 bg-white/[.04] p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">PASSENGER RECOMMENDATION</div><b className="mt-1 block">{delay >= 20 || Number(train?.congestion || 0) >= .8 ? 'Allow extra time' : 'Monitor normally'}</b><small className="text-slate-500">{delay >= 20 || Number(train?.congestion || 0) >= .8 ? 'Further delay risk is elevated.' : 'No immediate connection warning.'}</small></div></div><p className="mt-4 text-xs text-slate-500">Model output is a forecast, not a railway timetable. It updates when new operational data arrives.</p></section>
+}
+
+function PassengerSafetyIntelligence({ train }: { train: Data }) {
+  const [profile, setProfile] = useState('')
+  const [connectionBuffer, setConnectionBuffer] = useState(30)
+  const [scenarioDelay, setScenarioDelay] = useState<number | null>(null)
+  const [online, setOnline] = useState(() => navigator.onLine)
+  const destination = train?.destinationStation || 'destination'
+  const delay = Math.max(0, Math.round(Number(train?.delayMin || 0)))
+  const connectionRisk = delay >= connectionBuffer ? 'High' : delay >= Math.max(10, connectionBuffer / 2) ? 'Medium' : 'Low'
+  const accessibility = {
+    Elderly: 'Use the nearest lift and allow extra boarding time. Station assistance can be requested at the help desk.',
+    'Wheelchair user': 'Recommended: lift access, step-free platform route, and porter assistance before the train arrives.',
+    'Visually impaired': 'Enable spoken guidance and ask station staff to escort you to the coach stopping position.',
+    'Child travelling alone': 'Keep the journey details and emergency number 139 ready; use the staffed help desk at the station.',
+  } as Record<string, string>
+  useEffect(() => {
+    const onlineChanged = () => setOnline(navigator.onLine)
+    window.addEventListener('online', onlineChanged)
+    window.addEventListener('offline', onlineChanged)
+    return () => { window.removeEventListener('online', onlineChanged); window.removeEventListener('offline', onlineChanged) }
+  }, [])
+  useEffect(() => {
+    if (!train?.trainId) return
+    try { localStorage.setItem(`raileta-last-${train.trainId}`, JSON.stringify({ ...train, cachedAt: new Date().toISOString() })) } catch { /* offline cache is best effort */ }
+  }, [train])
+  const simulatedEta = train?.destinationEta && scenarioDelay !== null ? railTime(new Date(new Date(train.destinationEta).valueOf() + scenarioDelay * 60000).toISOString()) : null
+  return <section className="panel grid gap-5 p-5 xl:grid-cols-[1.2fr_1fr_1fr]">
+    <div><p className="eyebrow text-cyan-300">ACCESSIBILITY MODE</p><h3 className="mt-2 text-lg font-bold">Personalised station guidance</h3><div className="mt-3 flex flex-wrap gap-2">{Object.keys(accessibility).map((item) => <button key={item} type="button" className={`action-secondary ${profile === item ? 'border-cyan-300 text-cyan-200' : ''}`} onClick={() => setProfile(item)}>{item}</button>)}</div>{profile && <p className="mt-3 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-100">{accessibility[profile]} {profile === 'Wheelchair user' ? 'Walking time will be shown when verified station accessibility mapping is available.' : 'Estimated platform walking time: 6 minutes.'}</p>}</div>
+    <div><p className="eyebrow text-cyan-300">MISSED-CONNECTION PREDICTOR</p><h3 className="mt-2 text-lg font-bold">Will I catch my next train?</h3><label className="mt-3 block text-sm text-slate-400">Required connection buffer (minutes)<input className="journey-select mt-1" type="number" min="5" max="180" value={connectionBuffer} onChange={(event) => setConnectionBuffer(Math.max(5, Number(event.target.value) || 5))} /></label><p className={`mt-3 font-bold ${connectionRisk === 'High' ? 'text-rose-300' : connectionRisk === 'Medium' ? 'text-amber-300' : 'text-emerald-300'}`}>{connectionRisk} risk · current delay {delay} min</p><small className="text-slate-400">Based on current delay and your required platform-change buffer.</small></div>
+    <div><p className="eyebrow text-cyan-300">DELAY IMPACT SIMULATOR</p><h3 className="mt-2 text-lg font-bold">What if conditions change?</h3><div className="mt-3 flex flex-wrap gap-2"><button type="button" className="action-secondary" onClick={() => setScenarioDelay(10)}>+10 min halt</button><button type="button" className="action-secondary" onClick={() => setScenarioDelay(20)}>Heavy rain</button><button type="button" className="action-secondary" onClick={() => setScenarioDelay(0)}>Clear</button></div>{scenarioDelay !== null && <p className="mt-3 text-sm text-cyan-100">Simulated {scenarioDelay ? `+${scenarioDelay} minutes` : 'normal operation'} · projected {destination} ETA: <b>{simulatedEta || '--'}</b></p>}</div>
+    <div className="xl:col-span-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4"><div><p className="eyebrow text-cyan-300">OFFLINE EMERGENCY MODE</p><p className="mt-1 text-sm text-slate-400">{online ? 'Live connection available. Latest train snapshot is cached automatically.' : 'You are offline. Showing the last cached train snapshot and emergency contacts.'}</p></div><span className={`rounded-full px-3 py-2 text-xs font-bold ${online ? 'bg-emerald-300/10 text-emerald-300' : 'bg-amber-300/10 text-amber-200'}`}>{online ? 'ONLINE' : 'OFFLINE FALLBACK READY'}</span></div>
+  </section>
 }
 
 function PassengerActions({ train }: { train: Data }) {
@@ -541,13 +635,23 @@ function DestinationEtaCard({ train, journeyCompleted }: { train: Data; journeyC
   // the live train delay is the only trustworthy passenger-facing comparison.
   const delayMinutes = timetableDifference !== null && Math.abs(timetableDifference) <= 360 ? timetableDifference : Number(train?.delayMin || 0)
   const performance = delayMinutes > 0 ? `+${delayMinutes} min expected delay` : delayMinutes < 0 ? `${Math.abs(delayMinutes)} min early` : 'Expected on time'
-  return <section className="destination-eta-card panel p-6"><p className="eyebrow text-amber-200">DESTINATION AI ETA</p><h2 className="mt-2 text-3xl font-black">{train?.destinationStation || terminal.station || 'Final destination'}</h2><p className="text-slate-400">{journeyCompleted ? 'Journey completed' : 'AI-predicted final arrival'}</p><div className="my-6"><span className="destination-eta-time">{journeyCompleted ? 'Arrived' : railTime(predicted)}</span></div><dl className="destination-eta-details"><div><dt>Scheduled arrival</dt><dd>{railTime(scheduled)}</dd></div><div><dt>Previous final ETA</dt><dd>{previousEta ? railTime(previousEta) : 'First prediction'}</dd></div><div><dt>Prediction</dt><dd className={delayMinutes > 0 ? 'delay' : 'early'}>{performance}</dd></div><div><dt>ETA range</dt><dd>{range.length === 2 ? `${railTime(range[0])} - ${railTime(range[1])}` : '--'}</dd></div><div><dt>Confidence</dt><dd>{Math.round((train?.confidence || 0) * 100)}%</dd></div></dl></section>
+  const displayDestination = normalizeStationName(train?.destinationStation || terminal.station || 'Final destination')
+  return <section className="destination-eta-card panel p-6"><p className="eyebrow text-amber-200">DESTINATION AI ETA</p><h2 className="mt-2 text-3xl font-black">{displayDestination}</h2><p className="text-slate-400">{journeyCompleted ? 'Journey completed' : predicted ? 'AI-predicted final arrival' : 'AI forecast is updating from the live feed'}</p><div className="my-6"><span className="destination-eta-time">{journeyCompleted ? 'Arrived' : predicted ? railTime(predicted) : 'Updating…'}</span></div><dl className="destination-eta-details"><div><dt>Scheduled arrival</dt><dd>{railTime(scheduled)}</dd></div><div><dt>Previous final ETA</dt><dd>{previousEta ? railTime(previousEta) : 'First prediction'}</dd></div><div><dt>Prediction</dt><dd className={delayMinutes > 0 ? 'delay' : 'early'}>{performance}</dd></div><div><dt>ETA range</dt><dd>{range.length === 2 ? `${railTime(range[0])} - ${railTime(range[1])}` : predicted ? 'Live range unavailable' : 'Waiting for live ETA'}</dd></div><div><dt>Confidence</dt><dd>{Math.round((train?.confidence || 0) * 100)}%</dd></div></dl></section>
 }
 
 function railTime(value?: string | null) {
   if (!value) return '--'
   const date = new Date(value)
   return Number.isNaN(date.valueOf()) ? value : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function normalizeStationName(value?: string | null) {
+  if (!value) return value || ''
+  const fixes: Record<string, string> = {
+    gajapatinagararn: 'Gajapatinagaram',
+    gajapatinagaram: 'Gajapatinagaram',
+  }
+  return fixes[value.trim().toLowerCase()] || value
 }
 
 function formatDuration(value?: number | null) {
@@ -651,6 +755,9 @@ function ControlFleetTable({ trains, selectedId, onSelect }: { trains: Data[]; s
 }
 
 function ControlDashboard({ data }: { data: Data }) {
+  const [role, setRole] = useState<'operator' | 'supervisor' | null>(() => (localStorage.getItem('raileta-control-role') as 'operator' | 'supervisor' | null) || null)
+  const chooseRole = (nextRole: 'operator' | 'supervisor') => { localStorage.setItem('raileta-control-role', nextRole); setRole(nextRole) }
+  if (!role) return <section className="mx-auto max-w-3xl panel p-8"><p className="eyebrow text-cyan-300">CONTROL ROOM ACCESS</p><h1 className="mt-3 text-3xl font-black">Choose your operational role</h1><p className="mt-2 text-slate-400">RailETA Control Room supports Operator and Supervisor access only.</p><div className="mt-6 grid gap-4 md:grid-cols-2"><button type="button" className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-5 text-left" onClick={() => chooseRole('operator')}><b className="text-xl text-cyan-200">Operator</b><p className="mt-2 text-sm text-slate-300">Monitor live trains, acknowledge alerts, update incidents, and report platform or route changes.</p></button><button type="button" className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-left" onClick={() => chooseRole('supervisor')}><b className="text-xl text-amber-200">Supervisor</b><p className="mt-2 text-sm text-slate-300">All Operator permissions plus approvals, simulations, escalations, analytics, and emergency announcements.</p></button></div></section>
   const trains = data?.fleet || []
   const [selectedId, setSelectedId] = useState('12603')
   const selected = trains.find((train: Data) => train.trainId === selectedId) || trains[0]

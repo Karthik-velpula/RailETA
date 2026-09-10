@@ -473,6 +473,24 @@ def refresh_live_prediction(session: Session, train_id: str) -> dict:
     prediction["journeyStatus"] = journey_status
     prediction["lastUpdatedAt"] = last_updated_at
     prediction["routeTimeline"] = route_timeline
+    # Never expose a station copied from the generic simulator seed while the
+    # selected train's RailRadar route is still unavailable. A wrong station
+    # is more harmful than a clearly labelled route-verification state.
+    if not live.data:
+        prediction.update({
+            "currentStation": "Verified live position pending",
+            "nextStation": "Verified route pending",
+            "section": "Waiting for the selected train's live route",
+            "operationalStatus": "Latest prediction · route verification pending",
+            "destinationStation": "Destination pending",
+            "speedKmph": None,
+            "delayMin": None,
+            "confidence": 0.0,
+            "predictedArrivalAtNextStation": None,
+            "destinationEta": None,
+            "destinationEtaRange": [],
+            "routeTimeline": [],
+        })
     # The route's final timetable is the correct baseline for a passenger ETA.
     # Do not multiply the current-section delay across every later stop: that
     # can turn a 16-minute delay into several hours on a long journey.

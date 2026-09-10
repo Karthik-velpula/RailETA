@@ -162,12 +162,15 @@ body {
 .find-history-item b { color: #1e293b; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .find-history-item small { color: #64748b; font-size: .7rem; }
 
-.live-train-detail { background: #071824; border-radius: 1.5rem; color: #edf8ff; margin: 1.5rem auto 0; max-width: 1280px; padding: clamp(1rem, 2.5vw, 2rem); }
+.live-train-detail { background: #071824; border-radius: 1.5rem; color: #edf8ff; margin: 1.5rem auto 0; max-width: none; padding: clamp(1rem, 2.5vw, 2rem); }
 .live-detail-header { align-items: flex-start; background: linear-gradient(112deg, #0a4164, #0d6c8c 62%, #164660); border: 1px solid rgba(125, 211, 252, .22); border-radius: 1.2rem; display: flex; gap: 1rem; justify-content: space-between; padding: 1.25rem 1.4rem; }
 .live-detail-header h1 { color: #f5fbff; font-size: clamp(1.4rem, 3vw, 2.15rem); font-weight: 900; letter-spacing: -.035em; margin: .45rem 0; }
 .live-detail-header h1 span { color: #67e8f9; }
 .live-detail-header p { color: #d5effd; font-size: .88rem; margin: 0; }
 .live-source-badge { border-radius: 999px; flex-shrink: 0; font-size: .67rem; font-weight: 900; letter-spacing: .08em; padding: .55rem .7rem; }
+.live-status-actions { gap: .55rem; }
+.live-status-actions .action-primary { white-space: nowrap; }
+.live-status-actions .status-divider { color: rgba(226, 232, 240, .7); font-size: 1.2rem; }
 .live-source-badge.is-live { background: rgba(110, 231, 183, .16); border: 1px solid rgba(110, 231, 183, .38); color: #a7f3d0; }
 .live-source-badge.is-fallback { background: rgba(253, 230, 138, .16); border: 1px solid rgba(253, 230, 138, .38); color: #fde68a; }
 .live-train-detail .panel { background: #0b2638; border-color: rgba(148, 210, 238, .15); box-shadow: none; }
