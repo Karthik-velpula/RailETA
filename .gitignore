@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 app/backend/model_artifacts/*.joblib
 .env
+
+.DS_Store
