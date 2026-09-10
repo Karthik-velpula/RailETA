@@ -1,0 +1,11 @@
+{
+  "name": "raileta-ai",
+  "private": true,
+  "workspaces": [
+    "app/frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace app/frontend",
+    "build": "npm run build --workspace app/frontend"
+  }
+}
